@@ -6,6 +6,7 @@ mkdir -p /etc/kubernetes/pki/
 mkdir -p /etc/kubernetes/pki/ca 
 mkdir -p /etc/kubernetes/pki/etcd
 mkdir -p /var/lib/kubernetes/
+mkdir -p /home/shaiju/node-certs
 
 echo "Generating certificates"
 
@@ -22,9 +23,9 @@ openssl genrsa -out kube-controller-manager.key 2048
 openssl req -new -key kube-controller-manager.key -subj "/CN=system:kube-controller-manager/O=system:kube-controller-manager"  -out kube-controller-manager.csr
 openssl x509 -req -in kube-controller-manager.csr -CA=/etc/kubernetes/pki/ca/ca.crt -CAkey=/etc/kubernetes/pki/ca/ca.key -CAcreateserial -out kube-controller-manager.crt -days 1000
 
-openssl genrsa -out kube-proxy.key 2048
-openssl req -new -key kube-proxy.key -subj "/CN=system:kube-proxy/O=system:kube-proxier" -out kube-proxy.csr
-openssl x509 -req -in kube-proxy.csr -CA=/etc/kubernetes/pki/ca/ca.crt -CAkey=/etc/kubernetes/pki/ca/ca.key -CAcreateserial -out kube-proxy.crt -days 1000
+openssl genrsa -out /home/shaiju/node-certs/kube-proxy.key 2048
+openssl req -new -key /home/shaiju/node-certs/kube-proxy.key -subj "/CN=system:kube-proxy/O=system:kube-proxier" -out /home/shaiju/node-certs/kube-proxy.csr
+openssl x509 -req -in /home/shaiju/node-certs/kube-proxy.csr -CA=/etc/kubernetes/pki/ca/ca.crt -CAkey=/etc/kubernetes/pki/ca/ca.key -CAcreateserial -out /home/shaiju/node-certs/kube-proxy.crt -days 1000
 
 openssl genrsa -out kube-scheduler.key 2048
 openssl req -new -key kube-scheduler.key -subj "/CN=system:kube-scheduler/O=system:kube-scheduler" -out kube-scheduler.csr
@@ -100,7 +101,29 @@ openssl req -new -key etcd-server.key  -subj "/CN=etcd-server/O=Kubernetes" -out
 
 openssl x509 -req -in etcd-server.csr -CA=/etc/kubernetes/pki/ca/ca.crt -CAkey=/etc/kubernetes/pki/ca/ca.key -CAcreateserial -out  etcd-server.crt -days 1000 -extensions v3_req -extfile openssl-etcd.cnf
 
-rm /etc/kubernetes/pki/*.csr /etc/kubernetes/pki/*.cnf /etc/kubernetes/pki/etcd/*.csr /etc/kubernetes/pki/etcd/*.cnf /etc/kubernetes/pki/ca/ca.srl /etc/kubernetes/pki/ca/ca.csr
+
+
+openssl genrsa -out /home/shaiju/node-certs/node01.key 2048
+
+cat << EOF > /home/shaiju/node-certs/openssl-node01.cnf
+[req]
+req_extensions = v3_req
+distinguished_name = req_distinguished_name
+[req_distinguished_name]
+[v3_req]
+basicConstraints = CA:FALSE
+keyUsage = nonRepudiation, digitalSignature, keyEncipherment
+subjectAltName = @alt_names
+[alt_names]
+DNS.1 = node01
+IP.1 = 10.0.0.5
+EOF
+
+openssl req -new -key /home/shaiju/node-certs/node01.key  -subj "/CN=system:node:node01/O=system:nodes" -out /home/shaiju/node-certs/node01.csr -config /home/shaiju/node-certs/openssl-node01.cnf
+
+openssl x509 -req -in /home/shaiju/node-certs/node01.csr -CA=/etc/kubernetes/pki/ca/ca.crt -CAkey=/etc/kubernetes/pki/ca/ca.key -CAcreateserial -out  /home/shaiju/node-certs/node01.crt -days 1000 -extensions v3_req -extfile /home/shaiju/node-certs/openssl-node01.cnf
+
+rm /etc/kubernetes/pki/*.csr /etc/kubernetes/pki/*.cnf /etc/kubernetes/pki/etcd/*.csr /etc/kubernetes/pki/etcd/*.cnf /etc/kubernetes/pki/ca/ca.srl /etc/kubernetes/pki/ca/ca.csr /home/shaiju/node-certs/*.csr /home/shaiju/node-certs/*.cnf
 
 echo "All certificates created succesfully"
 
@@ -137,6 +160,19 @@ kubectl config set-cluster shaijus-cluster --server https://10.0.0.4:6443 --cert
 kubectl config set-credentials system:kube-scheduler --client-certificate /etc/kubernetes/pki/kube-scheduler.crt --client-key /etc/kubernetes/pki/kube-scheduler.key --kubeconfig /var/lib/kubernetes/kube-scheduler.config
 kubectl config set-context default --cluster shaijus-cluster --user system:kube-scheduler  --kubeconfig /var/lib/kubernetes/kube-scheduler.config
 kubectl config use-context default --kubeconfig /var/lib/kubernetes/kube-scheduler.config
+
+kubectl config set-cluster shaijus-cluster --server https://10.0.0.4:6443 --certificate-authority /etc/kubernetes/pki/ca/ca.crt --embed-certs=true --kubeconfig /home/shaiju/node-certs/node01-kubelet.config
+kubectl config set-credentials system:node:node01 --client-certificate /home/shaiju/node-certs/node01.crt --client-key /home/shaiju/node-certs/node01.key --embed-certs=true --kubeconfig /home/shaiju/node-certs/node01-kubelet.config
+kubectl config set-context default --cluster shaijus-cluster --user system:node:node01  --kubeconfig /home/shaiju/node-certs/node01-kubelet.config
+kubectl config use-context default --kubeconfig /home/shaiju/node-certs/node01-kubelet.config
+
+kubectl config set-cluster shaijus-cluster --server https://10.0.0.4:6443 --certificate-authority /etc/kubernetes/pki/ca/ca.crt --embed-certs=true --kubeconfig /home/shaiju/node-certs/kube-proxy.config
+kubectl config set-credentials system:kube-proxy --client-certificate /home/shaiju/node-certs/kube-proxy.crt --client-key /home/shaiju/node-certs/kube-proxy.key --embed-certs=true --kubeconfig /home/shaiju/node-certs/kube-proxy.config
+kubectl config set-context default --cluster shaijus-cluster --user system:kube-proxy  --kubeconfig /home/shaiju/node-certs/kube-proxy.config
+kubectl config use-context default --kubeconfig /home/shaiju/node-certs/kube-proxy.config
+
+sudo cp /etc/kubernetes/pki/ca/ca.crt /home/shaiju/node-certs/
+sudo cp /etc/kubernetes/pki/ca/ca.key /home/shaiju/node-certs/
 
 mkdir -p /home/shaiju/.kube
 
