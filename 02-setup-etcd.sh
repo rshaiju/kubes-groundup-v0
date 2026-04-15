@@ -23,4 +23,6 @@ EOF
 systemctl enable etcd
 systemctl daemon-reload
 systemctl start etcd
+systemctl status etcd
+
 

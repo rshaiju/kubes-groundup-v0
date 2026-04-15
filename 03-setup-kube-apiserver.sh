@@ -42,3 +42,4 @@ EOF
 systemctl enable kube-apiserver
 systemctl daemon-reload
 systemctl start kube-apiserver
+systemctl status kube-apiserver
