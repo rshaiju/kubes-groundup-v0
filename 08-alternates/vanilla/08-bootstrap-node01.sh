@@ -73,7 +73,7 @@ clusterDNS:
   - 10.96.0.10
 runtimeRequestTimeout: 15m
 cgroupDriver: systemd
-resolveConf: /run/systemd/resolve/resolv.conf
+resolvConf: /run/systemd/resolve/resolv.conf
 tlsCertFile: /etc/kubernetes/pki/node01.crt
 tlsPrivateKeyFile: /etc/kubernetes/pki/node01.key
 registerNode: true

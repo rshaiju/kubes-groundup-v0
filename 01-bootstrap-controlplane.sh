@@ -7,6 +7,7 @@ mkdir -p /etc/kubernetes/pki/ca
 mkdir -p /etc/kubernetes/pki/etcd
 mkdir -p /var/lib/kubernetes/
 mkdir -p /home/shaiju/node-certs
+mkdir -p /home/shaiju/node-tls-bootstrap
 
 echo "Generating certificates"
 
@@ -170,6 +171,16 @@ kubectl config set-cluster shaijus-cluster --server https://10.0.0.4:6443 --cert
 kubectl config set-credentials system:kube-proxy --client-certificate /home/shaiju/node-certs/kube-proxy.crt --client-key /home/shaiju/node-certs/kube-proxy.key --embed-certs=true --kubeconfig /home/shaiju/node-certs/kube-proxy.config
 kubectl config set-context default --cluster shaijus-cluster --user system:kube-proxy  --kubeconfig /home/shaiju/node-certs/kube-proxy.config
 kubectl config use-context default --kubeconfig /home/shaiju/node-certs/kube-proxy.config
+
+kubectl config set-cluster bootstrap --server https://10.0.0.4:6443 --certificate-authority /etc/kubernetes/pki/ca/ca.crt --kubeconfig=/home/shaiju/node-tls-bootstrap/bootstrap-kubeconfig 
+kubectl config set-credentials kubelet-bootstrap --token=07401b.f395accd246ae52d --kubeconfig=/home/shaiju/node-tls-bootstrap/bootstrap-kubeconfig 
+kubectl config set-context bootstrap --user=kubelet-bootstrap --cluster=bootstrap --kubeconfig=/home/shaiju/node-tls-bootstrap/bootstrap-kubeconfig 
+kubectl config use-context bootstrap --kubeconfig=/home/shaiju/node-tls-bootstrap/bootstrap-kubeconfig 
+
+
+sudo cp /home/shaiju/node-certs/node01-kubelet.config /home/shaiju/node-tls-bootstrap/node01-kubelet.config
+sudo cp /home/shaiju/node-certs/kube-proxy.config /home/shaiju/node-tls-bootstrap/kube-proxy.config
+sudo cp /etc/kubernetes/pki/ca/ca.crt /home/shaiju/node-tls-bootstrap/
 
 sudo cp /etc/kubernetes/pki/ca/ca.crt /home/shaiju/node-certs/
 sudo cp /etc/kubernetes/pki/ca/ca.key /home/shaiju/node-certs/
